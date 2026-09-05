@@ -1,6 +1,6 @@
 # php-rate-limiter
 
-[![CI](https://github.com/kasapdev/php-rate-limiter/actions/workflows/ci.yml/badge.svg)](https://github.com/kasapdev/php-rate-limiter/actions/workflows/ci.yml)
+[![CI](https://github.com/kasapdev/php-rate-limiter/actions/workflows/ci.yml/badge.svg)](https://github.com/kasapdev/php-rate-limiter/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) ![PHP](https://img.shields.io/badge/PHP-8.1%2B-777BB4?logo=php&logoColor=white)
 
 A zero-dependency PHP rate limiter. Pluggable storage (in-process array, or one-JSON-file-per-key
 on disk), a **token bucket** limiter (smooth, continuous refill — good for bursty traffic with an
