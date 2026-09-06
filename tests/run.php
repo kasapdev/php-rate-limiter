@@ -175,5 +175,54 @@ foreach (glob($tmpDir3 . '/*.json') ?: [] as $f) {
 }
 @rmdir($tmpDir3);
 
+// --- FileStorage: corrupted (non-JSON) file content is treated as missing ----------------------
+
+$tmpDir4 = sys_get_temp_dir() . '/kasapdev-rate-limiter-test-' . uniqid('', true);
+$fileStorage = new FileStorage($tmpDir4);
+$fileStorage->set('corrupt-me', ['x' => 1], 60);
+$corruptPath = (glob($tmpDir4 . '/*.json') ?: [])[0] ?? null;
+check('corrupted-file setup: exactly one file exists to corrupt', $corruptPath !== null);
+if ($corruptPath !== null) {
+    file_put_contents($corruptPath, 'this is not valid json{{{');
+    check('FileStorage::get() returns null for a file with corrupted JSON content', $fileStorage->get('corrupt-me') === null);
+    check('FileStorage deletes the corrupted file on access', !is_file($corruptPath));
+}
+@rmdir($tmpDir4);
+
+// --- FileStorage: different keys never collide onto the same file ------------------------------
+
+$tmpDir5 = sys_get_temp_dir() . '/kasapdev-rate-limiter-test-' . uniqid('', true);
+$fileStorage = new FileStorage($tmpDir5);
+$fileStorage->set('key-one', ['v' => 1], 60);
+$fileStorage->set('key-two', ['v' => 2], 60);
+check('FileStorage stores different keys as different files', count(glob($tmpDir5 . '/*.json') ?: []) === 2);
+check('FileStorage keeps values for different keys independent (key-one)', $fileStorage->get('key-one') === ['v' => 1]);
+check('FileStorage keeps values for different keys independent (key-two)', $fileStorage->get('key-two') === ['v' => 2]);
+foreach (glob($tmpDir5 . '/*.json') ?: [] as $f) {
+    @unlink($f);
+}
+@rmdir($tmpDir5);
+
+// --- TokenBucketLimiter: cost=0 always succeeds and never consumes tokens ----------------------
+
+$storage = new ArrayStorage();
+$limiter = new TokenBucketLimiter($storage, capacity: 2, refillRatePerSecond: 0.0);
+check('attempt() with cost=0 succeeds', $limiter->attempt('zero-cost', 0) === true);
+check('attempt() with cost=0 does not consume any tokens', $limiter->remaining('zero-cost') === 2);
+
+// --- TokenBucketLimiter: zero capacity always rejects ------------------------------------------
+
+$storage = new ArrayStorage();
+$limiter = new TokenBucketLimiter($storage, capacity: 0, refillRatePerSecond: 1.0);
+check('a bucket with zero capacity rejects even a cost=1 attempt', $limiter->attempt('empty-bucket') === false);
+check('remaining() on a zero-capacity bucket is 0', $limiter->remaining('empty-bucket') === 0);
+
+// --- SlidingWindowLimiter: maxRequests=0 rejects every attempt ---------------------------------
+
+$storage = new ArrayStorage();
+$limiter = new SlidingWindowLimiter($storage, maxRequests: 0, windowSeconds: 60);
+check('a window with maxRequests=0 rejects the very first attempt', $limiter->attempt('no-requests-allowed') === false);
+check('remaining() on a maxRequests=0 window is 0, not negative', $limiter->remaining('no-requests-allowed') === 0);
+
 echo $__failures === 0 ? "\nAll tests passed.\n" : "\n$__failures test(s) FAILED.\n";
 exit($__failures === 0 ? 0 : 1);
